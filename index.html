@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jeopardy - Hannah Edition</title>
+  <style>
+    body { font-family: sans-serif; background: #001f3f; color: white; text-align: center; margin: 0; }
+    .board { display: grid; grid-template-columns: repeat(6, 1fr); gap: 5px; padding: 20px; }
+    .cell { background: #003366; padding: 20px; font-size: 24px; cursor: pointer; margin: 2px; }
+    .cell.used { background: #001f3f; cursor: default; }
+    .scoreboard { display: flex; justify-content: space-around; margin-top: 20px; font-size: 24px; }
+    .question-container { display: none; flex-direction: column; align-items: center; justify-content: center; padding: 20px; height: 80vh; }
+    .question, .answer { font-size: 32px; margin: 10px; max-width: 80%; }
+    .question { cursor: pointer; }
+    .score-buttons { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 20px; }
+    .team-section { margin: 10px; }
+    .team-section h3 { margin-bottom: 10px; }
+    .team-section button { margin: 5px; padding: 10px 20px; font-size: 18px; border: none; border-radius: 5px; background-color: #7fc1f7; color: white; cursor: pointer; transition: background 0.3s; }
+    .team-section button:hover { background-color: #436683; }
+    .cell:not(.used):not(:nth-child(-n+6)) { color: gold; }
+    .team-section:first-of-type {
+        border-right: 2px solid white;
+        padding-right: 20px;
+        margin-right: 20px;
+    }
+  </style>
+</head>
+<body>
+  <div class="scoreboard">
+    <div>Team 1: <span id="score1">0</span></div>
+    <div>Team 2: <span id="score2">0</span></div>
+  </div>
+
+  <div id="board" class="board"></div>
+
+  <div id="questionScreen" class="question-container">
+    <div id="question" class="question" onclick="showAnswer()"></div>
+    <div id="answer" class="answer" style="display:none;"></div>
+    <div class="score-buttons" id="scoreButtons" style="display:none;">
+      <div class="team-section" style="border-right: 2px solid white;">
+        <h3>Points for Team 1</h3>
+        <button onclick="addPoints(1, 1)">Full Points</button>
+        <button onclick="addPoints(1, 0.5)">Half Points</button>
+        <button onclick="addPoints(1, 0)">No Points</button>
+      </div>
+      <div class="team-section">
+        <h3>Points for Team 2</h3>
+        <button onclick="addPoints(2, 1)">Full Points</button>
+        <button onclick="addPoints(2, 0.5)">Half Points</button>
+        <button onclick="addPoints(2, 0)">No Points</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const data = {
+  "OH HANNAH": {
+    100: ["This non-main Shrek character is her favorite.", "Who is the ugly step sister?"],
+    200: ["This movie scared her as a child, even though it wasn’t scary.", "What are Sons of Provo and Finding Nemo?"],
+    300: ["This is the worst place she’s ever had to poop.", "Where is Utah Lake, road on the way home from Bear Lake, or in the canyon?"],
+    400: ["This is her most famously quoted line.", "What is 'weird fam'?"],
+    500: ["She would eat at this restaurant every hour for a day.", "What is Jersey Mike’s or Jimmy John’s?"]
+  },
+  "HANNAH FACTS": {
+    100: ["This is likely her most expensive purchase.", "What is a phone or maybe a laptop?"],
+    200: ["This was her most iconic Halloween costume.", "Who is Shrek?"],
+    300: ["This was the hardest class she took at UVU.", "What is Statistics?"],
+    400: ["This is how much she pays in rent.", "What is $575?"],
+    500: ["She would describe herself as this color.", "What is BLUE?"]
+  },
+  "HANNAH LIKEY": {
+    100: ["If she moved out of Utah, she’d go here.", "Where is Hawai’i?"],
+    200: ["Her dream vacation spots include these.", "Where is Greece, Maldives?"],
+    300: ["If she didn’t study psychology, she would’ve studied this.", "What is English?"],
+    400: ["As a kid, she was obsessed with this.", "What are Minions?"],
+    500: ["These were her favorite childhood movies.", "What is Another Cinderella Story?"]
+  },
+  "FOODIE": {
+    100: ["Her go-to gas station order is this.", "What is Diet Coke with fresh lemon?"],
+    200: ["At Lake Powell, this dessert would be her top pick.", "What are Magic Mike bars?"],
+    300: ["For a day of eating a full meal every hour, she’d pick this restaurant.", "What is Jersey Mike’s or Jimmy John’s?"],
+    400: ["If fed by a tube forever, these are the 3 foods she'd choose.", "What are chicken, eggs, vegetables?"],
+    500: ["If she drank alcohol, this would be her first drink.", "What is a Pina Colada?"]
+  },
+  "MUSICALLY INCLINED": {
+    100: ["Her favorite concert experience was with this artist.", "Who is Role Model?"],
+    200: ["This is her most listened to artist.", "Who is Role Model?"],
+    300: ["Her longest guitar playing streak lasted this many days.", "What is 40?"],
+    400: ["This is her go-to karaoke song.", "What is Love on the Brain by Rihanna?"],
+    500: ["This is her favorite song to play on the piano.", "What is Not About Angels?"]
+  },
+  "RANDOM": {
+    100: ["She drives this kind of car.", "What is a Honda Accord?"],
+    200: ["She’d teach a 30-minute class on this subject she enjoys but isn’t an expert in.", "What is One Direction lore?"],
+    300: ["This petty moment marks the beginning of her villain origin story.", "What is probably when Crew said Emmy was the hot sister between the two of us LOL?"],
+    400: ["This obscure hobby is one she’s secretly wanted to try.", "What is sailing?"],
+    500: ["She’d swap lives with this person for a month.", "Who is River?"]
+  }
+};
+
+
+    let score1 = 0, score2 = 0;
+    let currentCategory = '', currentValue = 0;
+
+    const board = document.getElementById('board');
+    const questionScreen = document.getElementById('questionScreen');
+    const questionEl = document.getElementById('question');
+    const answerEl = document.getElementById('answer');
+    const scoreButtons = document.getElementById('scoreButtons');
+
+    function renderBoard() {
+      board.innerHTML = '';
+      Object.keys(data).forEach(category => {
+        board.innerHTML += `<div class='cell'><strong>${category}</strong></div>`;
+      });
+      for (let value of [100,200,300,400,500]) {
+        Object.keys(data).forEach(category => {
+          const key = `${category}-${value}`;
+          if (data[category][value]) {
+            board.innerHTML += `<div class='cell' id='${key}' onclick='openQuestion("${category}", ${value})'>${value}</div>`;
+          } else {
+            board.innerHTML += `<div class='cell used'></div>`;
+          }
+        });
+      }
+    }
+
+    function openQuestion(category, value) {
+      currentCategory = category;
+      currentValue = value;
+      const [q, a] = data[category][value];
+      questionEl.innerText = q;
+      answerEl.innerText = a;
+      questionScreen.style.display = 'flex';
+      board.style.display = 'none';
+      answerEl.style.display = 'none';
+      scoreButtons.style.display = 'none';
+    }
+
+    function showAnswer() {
+      answerEl.style.display = 'block';
+      scoreButtons.style.display = 'flex';
+    }
+
+    function addPoints(team, multiplier) {
+      const points = currentValue * multiplier;
+      if (team === 1) score1 += points;
+      else score2 += points;
+      document.getElementById('score1').innerText = score1;
+      document.getElementById('score2').innerText = score2;
+      delete data[currentCategory][currentValue];
+      questionScreen.style.display = 'none';
+      board.style.display = 'grid';
+      renderBoard();
+    }
+
+    renderBoard();
+  </script>
+</body>
+</html>
